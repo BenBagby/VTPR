@@ -189,7 +189,7 @@ class VTPR(eos):
         mixture = multiply(mixture, subtract(1,self.interaction_params))
         a_ij = mixture * P * 100000 / (self.R * T) ** 2
         b = cohesion * P * 100000 / (self.R * T)
-        c = self.s * b
+        c = self.s * cohesion
 
         bi = numpy.asarray(b.pow(3/4))
         b_ij = (add.outer(bi,bi)/2)
@@ -713,7 +713,7 @@ class VTPR(eos):
                 return F.sum()
             else:
                 return np.nan
-        (root,root_res) = brenth(funct, 0.0001, 1,disp = False, full_output = True)
+        (root,root_res) = brenth(funct, 0.1e-8, 1,disp = False, full_output = True)
 
         
         x = self.mole_fraction/(root*(K0-1)+1)
