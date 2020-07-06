@@ -713,8 +713,11 @@ class VTPR(eos):
                 return F.sum()
             else:
                 return np.nan
-        (root,root_res) = brenth(funct, 0.1e-8, 1,disp = False, full_output = True)
-
+        
+        try:
+            (root,root_res) = brenth(funct, 1e-12, 1,disp = False, full_output = True)
+        except:
+            root = 0
         
         x = self.mole_fraction/(root*(K0-1)+1)
         self.x = x/npsum(x)
@@ -748,7 +751,8 @@ class VTPR(eos):
             Vin = Zz * self.T / self.P - Cz 
         Vout = self.L * (Zx * Tx / Px - Cx)
         shrinkage = Vout / Vin
-
+        if shrinkage > 1:
+            shrinkage = 1
         return shrinkage
 
 
