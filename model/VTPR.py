@@ -770,6 +770,143 @@ class VTPR(eos):
         return gor
 
 
+    def initial_T_bubble(self):
+        T_bubble_est = 0.7*npsum(self.mole_fraction*self.Tc)
+        #T_bubble_est = 513.787863345636*1.1
+        T_low = T_high = 0
+
+        while True:
+            #print("T_bubble_est", T_bubble_est)
+            K = self.Pc*((1/T_bubble_est - 1/self.boiling_point)/(1/self.Tc - 1/self.boiling_point)/self.P)
+            y = npsum(self.mole_fraction*K)
+            if y < 1:
+                T_low = T_bubble_est
+                y_low = y - 1
+                T_new = T_bubble_est * 1.1
+            elif y > 1:
+                T_high = T_bubble_est
+                y_high = y - 1
+                T_new = T_bubble_est / 1.1
+            else:
+                return T_bubble_est
+            
+            if T_low * T_high > 0:
+                T_new = (y_high*T_low - y_low*T_high)/(y_high - y_low)
+
+            if abs(T_bubble_est - T_new) < 0.001:
+                return T_bubble_est
+
+            if abs(y - 1) < 0.00001:
+                return T_bubble_est
+
+            T_bubble_est = T_new
+
+    def initial_T_dew(self, debug_output=False):
+        #should initialize this later fr seed
+        T_dew_est = 1.01 * self.initial_T_bubble()
+        T_low = T_high = 0
+
+        while True:
+            if debug_output:
+                print("T_dew_est",T_dew_est)
+            K = self.Pc*((1/T_dew_est - 1/self.boiling_point)/(1/self.Tc - 1/self.boiling_point)/self.P)
+            y = npsum(self.mole_fraction/K)
+            if y < 1:
+                T_low = T_dew_est
+                y_low = y - 1
+                T_new = T_dew_est / 1.1
+            elif y > 1:
+                T_high = T_dew_est
+                y_high = y - 1
+                T_new = T_dew_est * 1.1
+            else:
+                return T_dew_est
+            
+            if T_low * T_high > 0:
+                T_new = (y_high*T_low - y_low*T_high)/(y_high - y_low)
+
+            if abs(T_dew_est - T_new) < 0.001:
+                return T_dew_est
+
+            if abs(y - 1) < 0.00001:
+                return T_dew_est
+
+            T_dew_est = T_new
+
+    def dew_T(self, debug_output=False):
+        T_dew = self.initial_T_dew(debug_output=debug_output)
+        lap = 1
+        K_old = self.Pc/self.P*((1/T_dew - 1/self.boiling_point)/(1/self.Tc - 1/self.boiling_point))
+        while True:
+            x= self.mole_fraction/K_old
+            #x = x/npsum(x)
+            #might need to normalize this ^
+            i = 0
+            while True:
+                i += 1
+                x_old = x
+                phiL, dummy = self.fugacity_coeffecient(x_old,self.P,T_dew,'liquid')
+                phiV, dummy = self.fugacity_coeffecient(self.mole_fraction,self.P,T_dew,'vapor')
+                K_PR = phiL/phiV
+                x = self.mole_fraction/K_PR
+                x_sum = npsum(x)
+                x = x/x_sum
+                diff = x/x_old - 1
+                if all(diff) < 0.001 or i>20:
+                    break
+
+            if lap == 1:
+                x_low = x_high = x_sum - 1
+                T_low = T_high = T_dew
+
+            if x_sum < 1:
+                T_high = T_dew
+                x_high = x_sum - 1
+                T_dew = T_dew / 1.2
+            elif x_sum > 1:
+                T_low = T_dew
+                x_low = x_sum - 1
+                T_dew = T_dew * 1.201
+            if debug_output:
+                print(T_low, T_high, lap)
+            if x_low * x_high > 0 or x_low == 0 or x_high == 0:
+                lap += 1
+            else:
+                break
+        while True:
+            T_new = (T_low + T_high)/2
+            if debug_output:
+                print("T_new:", T_new)
+            x= self.mole_fraction/K_old
+                #x = x/npsum(x)
+                #might need to normalize this ^
+            i = 0
+            while True:
+                i +=1
+                x_old = x
+                phiL, dummy = self.fugacity_coeffecient(x_old,self.P,T_new,'liquid')
+                phiV, dummy = self.fugacity_coeffecient(self.mole_fraction,self.P,T_new,'vapor')
+                K_PR = phiL/phiV
+                x = self.mole_fraction/K_PR
+                x_sum = npsum(x)
+                x = x/x_sum
+                diff = x/x_old - 1
+                if all(diff) < 0.001 or i > 10:
+                    break
+            
+            x_new = x_sum - 1
+            
+            if x_low * x_new > 0:
+                x_low = x_new
+                T_low = T_new
+            else:
+                x_high = x_new
+                T_high = T_new
+            
+            #final convergence tol
+            if T_high - T_low < 0.5:
+                return T_new
+
 
 
 if __name__ == "__main__":
@@ -810,8 +947,10 @@ if __name__ == "__main__":
     eos = VTPR(component_list, mole_fraction, MW_plus_fraction, SG_plus_fraction, P, T)
     shrinkage = eos.shrinkage(bubble_point_force=False)
     gor = eos.gor()
+    dewT = eos.dew_T(debug_output=False)
     print("shrinkage:",shrinkage)
     print("gor:", gor)
+    print("dewT:", dewT)
 
 
 '''  
