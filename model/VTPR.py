@@ -755,6 +755,21 @@ class VTPR(eos):
             shrinkage = 1
         return shrinkage
 
+    def gor(self):
+        Tx = (60 - 32) * 5 / 9 + 273.15
+        Px = 1.0155
+        self.pt_flash(Px, Tx)
+        dummy, Zx, Cx = self.fugacity_coeffecient_VT(self.x.values.tolist(), Px, Tx,'liquid')
+        dummy, Zy, Cy = self.fugacity_coeffecient_VT(self.x.values.tolist(), Px, Tx,'vapor')
+        rSCF = 8.3145e-2/28.32
+        rBBL = 8.3145e-2/158.99
+        VL = self.L * (Zx * Tx / Px - Cx) * rBBL
+        VV = self.V * (Zy * Tx / Px) * rSCF
+        gor = VV/VL
+
+        return gor
+
+
 
 
 if __name__ == "__main__":
@@ -794,7 +809,9 @@ if __name__ == "__main__":
 
     eos = VTPR(component_list, mole_fraction, MW_plus_fraction, SG_plus_fraction, P, T)
     shrinkage = eos.shrinkage(bubble_point_force=False)
-    print(shrinkage)
+    gor = eos.gor()
+    print("shrinkage:",shrinkage)
+    print("gor:", gor)
 
 
 '''  
